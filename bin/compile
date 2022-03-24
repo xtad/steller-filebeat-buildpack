@@ -1,0 +1,35 @@
+#!/bin/bash
+# bin/compile <build-dir> <cache-dir> <env-dir>
+
+echo 'Build and Compile Filebeat'
+BUILD_DIR=$1
+CACHE_DIR=$2
+ENV_DIR=$3
+FILEBEAT_URL=https://artifacts.elastic.co/downloads/beats/filebeat/filebeat-7.17.1-linux-x86_64.tar.gz
+
+mkdir -p $CACHE_DIR
+
+if [[ -f "$CACHE_DIR/filebeat-7.17.1.tar.gz" ]]; then
+    echo "Filebeat package already detected in cache, skipping download."
+else
+    echo "Downloading Filebeat into $CACHE_DIR ..."
+    curl --silent --location $FILEBEAT_URL -o $CACHE_DIR/filebeat-7.17.1.tar.gz
+    echo "...done."
+fi
+
+echo "Unzip Filebeat..."
+mkdir $BUILD_DIR/filebeat
+tar -xzf $CACHE_DIR/filebeat-7.17.1.tar.gz --strip 1 -C $BUILD_DIR/filebeat
+echo "...done."
+
+if [ -e $ENV_DIR/FILEBEAT_PLUGINS ]
+then
+  PLUGIN_STRING=$(cat $ENV_DIR/FILEBEAT_PLUGINS)
+  echo "Installing plugins:"
+  while IFS=';' read -ra PLUGINS; do
+       for i in "${PLUGINS[@]}"; do
+          $BUILD_DIR/filebeat/bin/filebeat-plugin install $i
+          echo "* Added: $i"
+       done
+  done <<< "$PLUGIN_STRING"
+fi
